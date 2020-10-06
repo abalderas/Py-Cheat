@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from datetime import datetime as dt
 
 def create_graph():
-	interval = 5 # time between exams
+	interval = 6 # time between exams
 	graph = []
 	graph_json = {}
 	with open('exam_data.csv') as File1:
@@ -15,7 +15,7 @@ def create_graph():
 		path = 0
 		
 		for row1 in reader1:
-			start1  = time.mktime(datetime.datetime.strptime(row1['start'], "%d/%m/%Y %H:%M").timetuple())
+			#start1  = time.mktime(datetime.datetime.strptime(row1['start'], "%d/%m/%Y %H:%M").timetuple())
 			finish1 = time.mktime(datetime.datetime.strptime(row1['finish'], "%d/%m/%Y %H:%M").timetuple())
 			grade1 = float(row1['grade'])
 			time1 = int(row1['minutes'])
@@ -23,7 +23,7 @@ def create_graph():
 				reader2 = csv.DictReader(File2, delimiter=';')
 				for row2 in reader2:
 					start2  = time.mktime(datetime.datetime.strptime(row2['start'], "%d/%m/%Y %H:%M").timetuple())
-					finish2  = time.mktime(datetime.datetime.strptime(row2['finish'], "%d/%m/%Y %H:%M").timetuple())
+					#finish2  = time.mktime(datetime.datetime.strptime(row2['finish'], "%d/%m/%Y %H:%M").timetuple())
 					grade2 = float(row2['grade'])
 					time2 = int(row2['minutes'])
 
@@ -45,7 +45,7 @@ def create_graph():
 
 	paths = paths_from_json(graph_json)
 
-	timeline_graph2(graph_json, paths)
+	timeline_graph(graph_json, paths)
 
 	return graph
 
@@ -55,8 +55,7 @@ def paths_from_json(network):
 		total_children = len(network[parent]['children'])
 		exists_parent = 0
 		for exists_path in paths:
-			if exists_path[-1] == parent:				
-				#print("------------------------")
+			if exists_path[-1] == parent:			
 				exists_parent = 1
 				i = 0
 				while i < (total_children-1):					
@@ -78,70 +77,7 @@ def paths_from_json(network):
 
 	return paths
 
-
-def timeline_graph(jg, numpaths):
-	init_exam = "22/05/2020 11:00"
-	end_exam = "22/05/2020 14:00"
-
-	plt.figure(1, figsize=(11, 7))
-	plt.clf()
-	
-	count = 0
-	for user in jg:
-		exam_student = time.mktime(datetime.datetime.strptime(jg[user]['start'], "%d/%m/%Y %H:%M").timetuple())
-		exam_start = time.mktime(datetime.datetime.strptime(init_exam, "%d/%m/%Y %H:%M").timetuple())
-		exam_finish = time.mktime(datetime.datetime.strptime(end_exam, "%d/%m/%Y %H:%M").timetuple())
-		exam_duration = exam_finish - exam_start
-		count = count + 7
-		x = 0 + ((exam_student - exam_start)/exam_duration)
-		y = 0 + (count%100)/100
-		jg[user]['position'] = (float(x), float(y))
-		plt.text(x,y,user)
-	
-	g = []
-
-	pathlists = [[] for j in range(numpaths+1)]
-	
-	for student in jg:
-		pathlists[jg[student]['path']].append(student)
-
-	for path in pathlists:	
-		G = nx.Graph()
-		i = 0
-		G.pos = {}  # location
-		G.pop = {}  # size
-		last = None
-		for student in path:	
-			if jg[student]['path'] < 100:	
-				x, y = jg[student]['position']
-				p = float(jg[student]['grade'])
-				r = "A"
-				n = jg[student]['path']
-				G.pos[i] = (float(x), float(y))
-				G.pop[i] = float(p)
-				if last is None:
-					last = i
-				else:
-					G.add_edge(i, last, **{r: int(n)})
-					last = i
-				i = i + 1
-		g.append(G)
-
-	colors = ["b", "g", "r", "c", "m", "y", "k", "w", "b", "g", "r", "c", "m", "y", 
-	"k", "w", "b", "g", "r", "c", "m", "y", "k", "w", "b", "g", "r", "c", "m", "y", 
-	"k", "w", "b", "g", "r", "c", "m", "y", "k", "w", "b", "g", "r", "c", "m", "y", "k", "w",
-	"b", "g", "r", "c", "m", "y", "k", "w", "b", "g", "r", "c", "m", "y", "k", "w", "b", "g", "r", "c", "m", "y", "k", "w",
-	"b", "g", "r", "c", "m", "y", "k", "w", "b", "g", "r", "c", "m", "y", "k", "w"]
-	for G in g:
-		c = colors.pop(0)
-		node_size = [float(G.pop[n] / 0.03) for n in G]		
-		nx.draw_networkx_edges(G, G.pos, edge_color=c, width=4, alpha=0.5)
-		nx.draw_networkx_nodes(G, G.pos, node_size=node_size, node_color=c, alpha=0.5)
-		nx.draw_networkx_nodes(G, G.pos, node_size=5, node_color="k")
-
-	plt.show()
-
-def timeline_graph2(jg, paths):
+def timeline_graph(jg, paths):
 	init_exam = "22/05/2020 11:00"
 	end_exam = "22/05/2020 14:00"
 
@@ -162,18 +98,20 @@ def timeline_graph2(jg, paths):
 	
 	g = []
 	monitoring_paths = int(input("Minimun path of students: "))
+	it_paths = 0
 	for path in paths:	
 		G = nx.Graph()
 		i = 0
 		G.pos = {}  # location
 		G.pop = {}  # size
 		last = None
-		
 		if len(path) >= monitoring_paths:
-			print(path)
+			it_paths = it_paths + 1
+			print("Group " + str(it_paths) + ": " + str(path))
+			
 			for student in path:	
 				x, y = jg[student]['position']
-				p = float(jg[student]['grade'])
+				p = abs(float(jg[student]['grade']))
 				r = "A"
 				n = jg[student]['path']
 				G.pos[i] = (float(x), float(y))
@@ -183,9 +121,8 @@ def timeline_graph2(jg, paths):
 				else:
 					G.add_edge(i, last, **{r: int(n)})
 					last = i
-				i = i + 1
-				
-		g.append(G)
+				i = i + 1				
+			g.append(G)
 
 	colors = ["b", "g", "r", "c", "m", "y", "k", "w", "b", "g", "r", "c", "m", "y", 
 	"k", "w", "b", "g", "r", "c", "m", "y", "k", "w", "b", "g", "r", "c", "m", "y", 
@@ -196,9 +133,10 @@ def timeline_graph2(jg, paths):
 	"k", "w", "b", "g", "r", "c", "m", "y", "k", "w", "b", "g", "r", "c", "m", "y", "k", "w",
 	"b", "g", "r", "c", "m", "y", "k", "w", "b", "g", "r", "c", "m", "y", "k", "w", "b", "g", "r", "c", "m", "y", "k", "w",
 	"b", "g", "r", "c", "m", "y", "k", "w", "b", "g", "r", "c", "m", "y", "k", "w"]
+	
 	for G in g:
 		c = colors.pop(0)
-		node_size = [float(G.pop[n] / 0.03) for n in G]		
+		node_size = [float(G.pop[n] / 0.025) for n in G]
 		nx.draw_networkx_edges(G, G.pos, edge_color=c, width=4, alpha=0.5)
 		nx.draw_networkx_nodes(G, G.pos, node_size=node_size, node_color=c, alpha=0.5)
 		nx.draw_networkx_nodes(G, G.pos, node_size=5, node_color="k")
