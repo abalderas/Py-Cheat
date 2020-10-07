@@ -85,19 +85,9 @@ def timeline_graph(jg, paths):
 	plt.clf()
 	
 	count = 0
-	for user in jg:
-		exam_student = time.mktime(datetime.datetime.strptime(jg[user]['start'], "%d/%m/%Y %H:%M").timetuple())
-		exam_start = time.mktime(datetime.datetime.strptime(init_exam, "%d/%m/%Y %H:%M").timetuple())
-		exam_finish = time.mktime(datetime.datetime.strptime(end_exam, "%d/%m/%Y %H:%M").timetuple())
-		exam_duration = exam_finish - exam_start
-		count = count + 7
-		x = 0 + ((exam_student - exam_start)/exam_duration)
-		y = 0 + (count%100)/100
-		jg[user]['position'] = (float(x), float(y))
-		plt.text(x,y,user)
 	
 	g = []
-	monitoring_paths = int(input("Minimun path of students: "))
+	monitoring_paths = int(input("Minimum number of students per group to be detected: "))
 	it_paths = 0
 	for path in paths:	
 		G = nx.Graph()
@@ -110,6 +100,19 @@ def timeline_graph(jg, paths):
 			print("Group " + str(it_paths) + ": " + str(path))
 			
 			for student in path:	
+
+				if not('position' in jg[student]):
+					exam_student = time.mktime(datetime.datetime.strptime(jg[student]['start'], "%d/%m/%Y %H:%M").timetuple())
+					exam_start = time.mktime(datetime.datetime.strptime(init_exam, "%d/%m/%Y %H:%M").timetuple())
+					exam_finish = time.mktime(datetime.datetime.strptime(end_exam, "%d/%m/%Y %H:%M").timetuple())
+					exam_duration = exam_finish - exam_start
+					count = count + 7
+					x = 0 + ((exam_student - exam_start)/exam_duration)
+					y = 0 + (count%100)/100
+					jg[student]['position'] = (float(x), float(y))
+					plt.text(x,y,student, fontsize=16, verticalalignment='bottom', horizontalalignment='right',)
+
+
 				x, y = jg[student]['position']
 				p = abs(float(jg[student]['grade']))
 				r = "A"
@@ -136,13 +139,24 @@ def timeline_graph(jg, paths):
 	
 	for G in g:
 		c = colors.pop(0)
-		node_size = [float(G.pop[n] / 0.025) for n in G]
+		node_size = [float(grade_size(G.pop[n]) / 0.01) for n in G]
 		nx.draw_networkx_edges(G, G.pos, edge_color=c, width=4, alpha=0.5)
 		nx.draw_networkx_nodes(G, G.pos, node_size=node_size, node_color=c, alpha=0.5)
 		nx.draw_networkx_nodes(G, G.pos, node_size=5, node_color="k")
 
 	plt.show()
-			
+
+def grade_size(grade):	
+	size = grade
+
+	if grade > 9:
+		size = size*2
+	elif grade >= 7:
+		size = size*1.5
+	elif grade < 5:
+		size = size*0.5
+
+	return size
 
 def process():
 	# Code for printing to a file 
