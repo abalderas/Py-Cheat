@@ -6,48 +6,132 @@ import networkx as nx
 import matplotlib.pyplot as plt
 from datetime import datetime as dt
 
-def create_graph():
-	interval = 6 # time between exams
+# groups of students detected working in a row
+def together(settings):
 	graph = []
 	graph_json = {}
-	with open('exam_data.csv') as File1:
+	with open(settings["source"]) as File1:
+		reader = csv.DictReader(File1, delimiter=';')
+		path = 0
+		inicial = 1 # no va en línea con el anterior alumno o es el primero
+		for row in reader:
+			# La primera vez, el vector está vacío
+			if inicial == 1:
+				user1 = row['user']
+				finish1 = time.mktime(datetime.datetime.strptime(row['finish'], "%d/%m/%Y %H:%M").timetuple())
+				start_str1  = row['start']
+				finish_str1 = row['finish']
+				grade1 = float(row['grade'])
+				time1 = int(row['minutes'])
+				inicial = 0
+			else:
+				user2 = row['user']
+				start2  = time.mktime(datetime.datetime.strptime(row['start'], "%d/%m/%Y %H:%M").timetuple())
+				start_str2  = row['start']
+				finish_str2 = row['finish']
+				grade2 = float(row['grade'])
+				time2 = int(row['minutes'])
+
+				if finish1 <= start2 and start2 <= finish1 + (60*settings["interval"]) and (grade1-1.25 <= grade2) and time1 >= time2:
+					if (not(already_family(user1,user2,graph_json))):
+						graph.append((user1,user2))
+						if (graph_json.get(user1)):
+							graph_json[user1]['children'].append(user2)
+							path2 = graph_json[user1]['path']	
+						else:
+							path = path+1		
+							path2 = path	
+							graph_json[user1] = {'start': start_str1, 'finish': finish_str1, 'time': time1, 'grade': grade1, 'path': path, 'children': [user2]}
+						if (not(graph_json.get(user2))):
+							graph_json[user2] = {'start': start_str2, 'finish': finish_str2, 'time': time2, 'grade': grade2, 'path': path2, 'children': [], 'parents': [user2]}
+					finish_str1 = finish_str2
+					start_str1 = start_str2
+					grade1 = grade2
+					time1 = time2
+					user1 = user2
+				
+				else:
+					inicial = 1
+
+				
+
+	paths = paths_from_json(graph_json)
+	timeline_graph(settings, graph_json, paths)
+
+	return graph_json
+
+# indepents group of students working in a row
+def paths(settings):
+	graph = []
+	graph_json = {}
+	with open(settings["source"]) as File1:
 		reader1 = csv.DictReader(File1, delimiter=';')
 		path = 0
 		
 		for row1 in reader1:
-			#start1  = time.mktime(datetime.datetime.strptime(row1['start'], "%d/%m/%Y %H:%M").timetuple())
 			finish1 = time.mktime(datetime.datetime.strptime(row1['finish'], "%d/%m/%Y %H:%M").timetuple())
 			grade1 = float(row1['grade'])
 			time1 = int(row1['minutes'])
-			with open('exam_data.csv') as File2:
+			with open(settings["source"]) as File2:
 				reader2 = csv.DictReader(File2, delimiter=';')
 				for row2 in reader2:
-					start2  = time.mktime(datetime.datetime.strptime(row2['start'], "%d/%m/%Y %H:%M").timetuple())
-					#finish2  = time.mktime(datetime.datetime.strptime(row2['finish'], "%d/%m/%Y %H:%M").timetuple())
-					grade2 = float(row2['grade'])
-					time2 = int(row2['minutes'])
-
-					if finish1 <= start2 and start2 <= finish1 + (60*interval) and (grade1-1.25 <= grade2) and time1 > time2:
-						graph.append((row1['user'],row2['user']))
-						if (graph_json.get(row1['user'])):
-							graph_json[row1['user']]['children'].append(row2['user'])
-							path2 = graph_json[row1['user']]['path']	
-						else:
-							path = path+1		
-							path2 = path	
-							graph_json[row1['user']] = {'start': row1['start'], 'finish': row1['finish'], 'time': time1, 'grade': grade1, 'path': path, 'children': [row2['user']]}
-						if (not(graph_json.get(row2['user']))):
-							graph_json[row2['user']] = {'start': row2['start'], 'finish': row2['finish'], 'time': time2, 'grade': grade2, 'path': path2, 'children': [], 'parents': [row1['user']]}
-						
+					if row1['user'] != row2['user']:
+						start2  = time.mktime(datetime.datetime.strptime(row2['start'], "%d/%m/%Y %H:%M").timetuple())
+						grade2 = float(row2['grade'])
+						time2 = int(row2['minutes'])
+						if finish1 <= start2 and start2 <= finish1 + (60*settings["interval"]) and (grade1-1.25 <= grade2) and time1 >= time2:
+							if (not(already_family(row1['user'],row2['user'],graph_json))):
+								graph.append((row1['user'],row2['user']))
+								if (graph_json.get(row1['user'])):
+									graph_json[row1['user']]['children'].append(row2['user'])
+									path2 = graph_json[row1['user']]['path']	
+								else:
+									path = path+1		
+									path2 = path	
+									graph_json[row1['user']] = {'start': row1['start'], 'finish': row1['finish'], 'time': time1, 'grade': grade1, 'path': path, 'children': [row2['user']]}
+								if (not(graph_json.get(row2['user']))):
+									graph_json[row2['user']] = {'start': row2['start'], 'finish': row2['finish'], 'time': time2, 'grade': grade2, 'path': path2, 'children': [], 'parents': [row1['user']]}
+								
 	with open('cheat.json', 'w') as outfile:
 		json.dump(graph_json, outfile)
 
-
 	paths = paths_from_json(graph_json)
+	timeline_graph(settings, graph_json, paths)
 
-	timeline_graph(graph_json, paths)
+	return graph_json
+
+def create_graph(settings):
+	graph = []
+	with open(settings["source"]) as File1:
+		reader1 = csv.DictReader(File1, delimiter=';')
+		path = 0
+		
+		for row1 in reader1:
+			finish1 = time.mktime(datetime.datetime.strptime(row1['finish'], "%d/%m/%Y %H:%M").timetuple())
+			grade1 = float(row1['grade'])
+			time1 = int(row1['minutes'])
+			with open(settings["source"]) as File2:
+				reader2 = csv.DictReader(File2, delimiter=';')
+				for row2 in reader2:
+					if row1['user'] != row2['user']:
+						start2  = time.mktime(datetime.datetime.strptime(row2['start'], "%d/%m/%Y %H:%M").timetuple())
+						grade2 = float(row2['grade'])
+						time2 = int(row2['minutes'])
+						if finish1 <= start2 and start2 <= finish1 + (60*settings["interval"]) and (grade1-1.25 <= grade2) and time1 >= time2:
+							graph.append((row1['user'],row2['user']))
 
 	return graph
+
+# NO FUNCIONA ESTO DE ABAJO, INVESTIGAR EXTRACCION DE JSON_VAR, VOY POR AQUÍ. 
+# Función que observa si nodo 2 es padre de nodo 1
+# igual habría que ampliar a abuelo o anteriores
+def already_family(user1,user2,graph_json):
+	already = False
+	if graph_json.get(user2) is not None:
+		for child in graph_json[user2]['children']:
+			if child == user1:
+				already = True	
+	return already
 
 def paths_from_json(network):
 	paths = []
@@ -77,55 +161,57 @@ def paths_from_json(network):
 
 	return paths
 
-def timeline_graph(jg, paths):
-	init_exam = "22/05/2020 11:00"
-	end_exam = "22/05/2020 14:00"
-
+def timeline_graph(settings, jg, paths):
 	plt.figure(1, figsize=(11, 7))
 	plt.clf()
-	
 	count = 0
 	
 	g = []
-	monitoring_paths = int(input("Minimum number of students per group to be detected: "))
+	print("		\n\n\n\n")
+	print("		-----------------------------------------------")
+	print("		Py-Cheat")
+	print("		-----------------------------------------------\n")
+	monitoring_paths = int(input("		Please, introduce  the minimum number of students per group to be detected: "))
 	it_paths = 0
-	for path in paths:	
-		G = nx.Graph()
-		i = 0
-		G.pos = {}  # location
-		G.pop = {}  # size
-		last = None
-		if len(path) >= monitoring_paths:
-			it_paths = it_paths + 1
-			print("Group " + str(it_paths) + ": " + str(path))
-			
-			for student in path:	
+	with open('cheat.csv', 'w') as outfile:
+		for path in paths:	
+			G = nx.Graph()
+			i = 0
+			G.pos = {}  # location
+			G.pop = {}  # size
+			last = None
+			if len(path) >= monitoring_paths:
+				it_paths = it_paths + 1
+				print("		Group " + str(it_paths) + ": " + str(path))
+				line = "init;"
+				for student in path:	
+					line = line + student + ";"
+					if not('position' in jg[student]):
+						exam_student = time.mktime(datetime.datetime.strptime(jg[student]['start'], "%d/%m/%Y %H:%M").timetuple())
+						exam_start = time.mktime(datetime.datetime.strptime(settings["init_exam"], "%d/%m/%Y %H:%M").timetuple())
+						exam_finish = time.mktime(datetime.datetime.strptime(settings["end_exam"], "%d/%m/%Y %H:%M").timetuple())
+						exam_duration = exam_finish - exam_start
+						count = count + 7
+						x = 0 + ((exam_student - exam_start)/exam_duration)
+						y = 0 + (count%100)/100
+						jg[student]['position'] = (float(x), float(y))
+						plt.text(x,y,student, fontsize=16, verticalalignment='bottom', horizontalalignment='right',)
+					
 
-				if not('position' in jg[student]):
-					exam_student = time.mktime(datetime.datetime.strptime(jg[student]['start'], "%d/%m/%Y %H:%M").timetuple())
-					exam_start = time.mktime(datetime.datetime.strptime(init_exam, "%d/%m/%Y %H:%M").timetuple())
-					exam_finish = time.mktime(datetime.datetime.strptime(end_exam, "%d/%m/%Y %H:%M").timetuple())
-					exam_duration = exam_finish - exam_start
-					count = count + 7
-					x = 0 + ((exam_student - exam_start)/exam_duration)
-					y = 0 + (count%100)/100
-					jg[student]['position'] = (float(x), float(y))
-					plt.text(x,y,student, fontsize=16, verticalalignment='bottom', horizontalalignment='right',)
-
-
-				x, y = jg[student]['position']
-				p = abs(float(jg[student]['grade']))
-				r = "A"
-				n = jg[student]['path']
-				G.pos[i] = (float(x), float(y))
-				G.pop[i] = float(p)
-				if last is None:
-					last = i
-				else:
-					G.add_edge(i, last, **{r: int(n)})
-					last = i
-				i = i + 1				
-			g.append(G)
+					x, y = jg[student]['position']
+					p = abs(float(jg[student]['grade']))
+					r = "A"
+					n = jg[student]['path']
+					G.pos[i] = (float(x), float(y))
+					G.pop[i] = float(p)
+					if last is None:
+						last = i
+					else:
+						G.add_edge(i, last, **{r: int(n)})
+						last = i
+					i = i + 1				
+				g.append(G)
+				print(line,file=outfile)
 
 	colors = ["b", "g", "r", "c", "m", "y", "k", "w", "b", "g", "r", "c", "m", "y", 
 	"k", "w", "b", "g", "r", "c", "m", "y", "k", "w", "b", "g", "r", "c", "m", "y", 
@@ -158,9 +244,12 @@ def grade_size(grade):
 
 	return size
 
+#--------------------------
+#ESTA FUNCION NO SE UTILIZA
+#--------------------------
 def process():
 	# Code for printing to a file 
-	interval = 5 # time between exams
+	interval = 1 # time between exams
 	path = 0 # different paths
 	simfile = open('result.csv', 'w') 
 	nodesfile = open('nodes.csv', 'w')
@@ -257,7 +346,8 @@ def process():
 																		print(row5['user'] + ";" + row5['user'] + ";" + row5['group'], file=nodesfile)
 																		print(row6['user'] + ";" + row6['user'] + ";" + row6['group'], file=nodesfile)			
 																		
-
+#--------------------------
+#--------------------------
 					
 
 def draw_graph(graph):
@@ -283,8 +373,39 @@ def draw_graph(graph):
 	# show graph
 	plt.show()
 
+
+def menu(settings):
+	print("		\n\n\n\n")
+	print("		-----------------------------------------------")
+	print("		Py-Cheat")
+	print("		-----------------------------------------------")
+	print("		Marque la opción que desea:")
+	print("		1) Entregas de estudiantes consecutivas.")
+	print("		2) Entregas de estudiantes consecutivas (caminos independientes).")
+	print("		3) Grafo global.")
+	print("		-----------------------------------------------\n")
+	opcion = int(input("		Introduce la opción: "))
+	
+	if opcion == 1:
+		together(settings)
+	elif opcion == 2:
+		paths(settings)
+	elif opcion == 3:
+		draw_graph(create_graph(settings))
+	else:
+		print("Hasta otra")
+
+	return 1
+
 # draw example
 # graph = [(20, 21),(21, 22),(22, 23), (23, 24),(24, 25), (25, 20),(20,21)]
-draw_graph(create_graph())
+settings = {
+	"interval" : 10,
+	"source" : "exam_data.csv",
+	"init_exam" : "22/05/2020 11:00",
+	"end_exam" : "22/05/2020 14:00"
+}
 
-#timeline_graph()
+#draw_graph(create_graph(settings))
+
+menu(settings)
